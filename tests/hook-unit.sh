@@ -28,7 +28,7 @@ done
 
 # main(): an unsafe command becomes a pre-typed prompt only when restored panes run zsh
 tmux() { command tmux -L hook-unit "$@"; }
-D=$(mktemp -d); trap 'command tmux -L hook-unit kill-server 2>/dev/null; rm -rf "$D"' EXIT
+D=$(mktemp -d); trap 'command tmux -L hook-unit kill-server 2>/dev/null; rm -rf "$D" "${TMUX_TMPDIR:-/tmp}/tmux-$(id -u)/hook-unit"' EXIT
 command tmux -L hook-unit -f /dev/null new-session -d
 for shell in zsh bash; do
 	tmux set -g default-shell "$(command -v "$shell")"

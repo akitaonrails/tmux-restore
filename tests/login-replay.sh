@@ -7,7 +7,7 @@
 set -u
 here=$(cd "$(dirname "$0")" && pwd)
 PLUGINS_DIR=${PLUGINS_DIR:-$HOME/.tmux/plugins}
-D=$(mktemp -d); trap 'command tmux -L login-replay kill-server 2>/dev/null; rm -rf "$D"' EXIT
+D=$(mktemp -d); trap 'command tmux -L login-replay kill-server 2>/dev/null; rm -rf "$D" "${TMUX_TMPDIR:-/tmp}/tmux-$(id -u)/login-replay"{,.resurrect-restore.lock}' EXIT
 mkdir -p "$D/resurrect"; cp "$here/fixtures/29-windows.txt" "$D/resurrect/save.txt"; ln -s save.txt "$D/resurrect/last"
 for p in tpm tmux-resurrect tmux-continuum; do
 	[[ -d $PLUGINS_DIR/$p ]] || { echo "FAIL: $PLUGINS_DIR/$p not found (set PLUGINS_DIR)"; exit 1; }

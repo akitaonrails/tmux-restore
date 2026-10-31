@@ -8,7 +8,7 @@ set -u
 mode=${1:-double}
 here=$(cd "$(dirname "$0")" && pwd)
 RESTORE=${RESTORE:-${PLUGINS_DIR:-$HOME/.tmux/plugins}/tmux-resurrect/scripts/restore.sh}
-D=$(mktemp -d); trap 'tmux -L restore-race kill-server 2>/dev/null; rm -rf "$D"' EXIT
+D=$(mktemp -d); trap 'tmux -L restore-race kill-server 2>/dev/null; rm -rf "$D" "${TMUX_TMPDIR:-/tmp}/tmux-$(id -u)/restore-race"{,.resurrect-restore.lock}' EXIT
 T() { tmux -L restore-race "$@"; }
 mkdir -p "$D/resurrect"; cp "$here/fixtures/29-windows.txt" "$D/resurrect/save.txt"; ln -s save.txt "$D/resurrect/last"
 printf '%s\n' "set -g @resurrect-dir '$D/resurrect'" "set -g @resurrect-processes 'false'" "set -g default-size 254x75" > "$D/test.conf"
