@@ -1,0 +1,61 @@
+pane	main	0	0	:-	0	zsh	:/tmp	1	zsh	:
+pane	main	1	0	:	0	zsh	:/tmp	1	zsh	:
+pane	main	2	0	:	0	zsh	:/tmp	1	zsh	:
+pane	main	3	0	:	0	zsh	:/tmp	1	zsh	:
+pane	main	4	0	:	0	zsh	:/tmp	1	zsh	:
+pane	main	5	0	:	0	zsh	:/tmp	1	zsh	:
+pane	main	6	0	:	0	zsh	:/tmp	1	zsh	:
+pane	main	7	0	:	0	zsh	:/tmp	1	zsh	:
+pane	main	8	0	:	0	zsh	:/tmp	1	zsh	:
+pane	main	9	0	:	0	zsh	:/tmp	1	zsh	:
+pane	main	10	0	:	0	zsh	:/tmp	1	zsh	:
+pane	main	11	0	:	0	zsh	:/tmp	1	zsh	:
+pane	main	12	0	:	0	zsh	:/tmp	1	zsh	:
+pane	main	13	0	:	0	zsh	:/tmp	1	zsh	:
+pane	main	14	0	:	0	zsh	:/tmp	1	zsh	:
+pane	main	15	0	:	0	zsh	:/tmp	1	zsh	:
+pane	main	16	0	:	0	zsh	:/tmp	1	zsh	:
+pane	main	17	0	:	0	zsh	:/tmp	1	zsh	:
+pane	main	18	0	:	0	zsh	:/tmp	1	zsh	:
+pane	main	19	0	:	0	zsh	:/tmp	1	zsh	:
+pane	main	20	1	:*	0	zsh	:/tmp	0	zsh	:
+pane	main	20	1	:*	1	zsh	:/tmp	1	zsh	:
+pane	main	21	0	:	0	zsh	:/tmp	1	zsh	:
+pane	main	22	0	:	0	zsh	:/tmp	1	zsh	:
+pane	main	23	0	:	0	zsh	:/tmp	1	zsh	:
+pane	main	24	0	:	0	zsh	:/tmp	1	zsh	:
+pane	main	24	0	:	1	zsh	:/tmp	0	zsh	:
+pane	main	25	0	:	0	zsh	:/tmp	1	zsh	:
+pane	main	26	0	:	0	zsh	:/tmp	1	zsh	:
+pane	main	27	0	:	0	zsh	:/tmp	1	zsh	:
+pane	main	28	0	:	0	zsh	:/tmp	1	zsh	:
+window	main	0	:w0	0	:-	c7de,254x75,0,0,1	off
+window	main	1	:w1	0	:	c7e0,254x75,0,0,3	:
+window	main	2	:w2	0	:	c7e1,254x75,0,0,4	off
+window	main	3	:w3	0	:	c7e2,254x75,0,0,5	off
+window	main	4	:w4	0	:	c7e3,254x75,0,0,6	off
+window	main	5	:w5	0	:	c7e4,254x75,0,0,7	off
+window	main	6	:w6	0	:	c7e5,254x75,0,0,8	off
+window	main	7	:w7	0	:	c7e6,254x75,0,0,9	off
+window	main	8	:w8	0	:	641f,254x75,0,0,10	off
+window	main	9	:w9	0	:	6420,254x75,0,0,11	off
+window	main	10	:w10	0	:	6421,254x75,0,0,12	off
+window	main	11	:w11	0	:	6422,254x75,0,0,13	off
+window	main	12	:w12	0	:	6423,254x75,0,0,14	off
+window	main	13	:w13	0	:	6424,254x75,0,0,15	off
+window	main	14	:w14	0	:	6425,254x75,0,0,16	off
+window	main	15	:w15	0	:	6426,254x75,0,0,17	off
+window	main	16	:w16	0	:	6427,254x75,0,0,18	off
+window	main	17	:w17	0	:	6428,254x75,0,0,19	off
+window	main	18	:w18	0	:	e41f,254x75,0,0,20	off
+window	main	19	:w19	0	:	e420,254x75,0,0,21	:
+window	main	20	:w20	1	:*	7b38,254x75,0,0{127x75,0,0,23,126x75,128,0,33}	off
+window	main	21	:w21	0	:	e425,254x75,0,0,26	:
+window	main	22	:w22	0	:	e426,254x75,0,0,27	:
+window	main	23	:w23	0	:	e427,254x75,0,0,28	:
+window	main	24	:w24	0	:	7b38,254x75,0,0{127x75,0,0,34,126x75,128,0,41}	off
+window	main	25	:w25	0	:	6426,254x75,0,0,36	:
+window	main	26	:w26	0	:	6427,254x75,0,0,37	:
+window	main	27	:w27	0	:	6429,254x75,0,0,39	:
+window	main	28	:w28	0	:	e423,254x75,0,0,43	off
+state	main	

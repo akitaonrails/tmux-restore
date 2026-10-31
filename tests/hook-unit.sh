@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# Unit tests for scripts/resurrect-post-save.sh: claude arg filtering, quoting, prefill, and which
+# saved commands get rewritten (on a throwaway tmux server). Needs zsh.
+here=$(cd "$(dirname "$0")" && pwd)
+source "$here/../scripts/resurrect-post-save.sh"
+pass=0 fail=0
+check() { if [[ $2 == "$3" ]]; then pass=$((pass + 1)); else fail=$((fail + 1)); printf 'FAIL %s\n  want: [%s]\n  got:  [%s]\n' "$1" "$2" "$3"; fi; }
+ka() { claude_keep_args "$@"; }
+check "flags kept"           " --dangerously-skip-permissions --effort max" "$(ka --dangerously-skip-permissions --effort max)"
+check "prompt dropped"       " --dangerously-skip-permissions"              "$(ka --dangerously-skip-permissions 'fix the bug')"
+check "prompt between flags" " --model opus --effort high"                  "$(ka --model opus 'do x' --effort high)"
+check "-c dropped"           " --dangerously-skip-permissions"              "$(ka -c --dangerously-skip-permissions)"
+check "--resume id dropped"  " --effort max"                                "$(ka --resume abc-123 --effort max)"
+check "-r w/o value dropped" " --effort max"                                "$(ka -r --effort max)"
+check "= forms"              " --model=sonnet"                              "$(ka --resume=abc --model=sonnet)"
+check "session-id/fork drop" " --name my\\ session"                         "$(ka --session-id 1111 --fork-session --name 'my session')"
+check "variadic then prompt" " --add-dir /a /b --model x"                   "$(ka --add-dir /a /b --model x prompt words)"
+check "optional value"       " --debug api"                                 "$(ka --debug api hello)"
+check "-- ends options"      ""                                             "$(ka -- 'prompt')"
+check "no args"              ""                                             "$(ka)"
+out=$(ka --append-system-prompt "be terse; it's \$fine" --effort max "a prompt"); eval "set -- $out"
+check "roundtrip argc" "4" "$#"; check "roundtrip value" "be terse; it's \$fine" "$2"
+pid=$(for p in $(pgrep -x claude); do [[ -e ~/.claude/sessions/$p.json ]] && { echo "$p"; break; }; done)
+[[ -n $pid ]] && check "proc_start vs registry" "$(jq -r .procStart ~/.claude/sessions/$pid.json)" "$(proc_start "$pid")"
+for cmd in 'sleep 100000' "python3 -c import\\ time\;\\ time.sleep\\(1e6\\) it\\'s\\ a\\ test" "echo \$'a\\nb' \"double\" 'single'" 'grep -r foo\ bar . | wc -l'; do
+	check "prefill: $cmd" "$cmd" "$(zsh -fc "$(prefill "$cmd"); read -rz got; print -rn -- \$got")"
+done
+
+# main(): an unsafe command becomes a pre-typed prompt only when restored panes run zsh
+tmux() { command tmux -L hook-unit "$@"; }
+D=$(mktemp -d); trap 'command tmux -L hook-unit kill-server 2>/dev/null; rm -rf "$D"' EXIT
+command tmux -L hook-unit -f /dev/null new-session -d
+for shell in zsh bash; do
+	tmux set -g default-shell "$(command -v "$shell")"
+	printf 'pane\tmain\t0\t1\t:*\t%s\tzsh\t:/tmp\t1\t%s\t:%s\n' 0 make 'make deploy' 1 vim 'vim notes.txt' > "$D/save"
+	main "$D/save"
+	[[ $shell == zsh ]] && want=":print -rz -- 'make deploy'" || want=":make deploy"
+	check "main ($shell): unsafe" "$want" "$(sed -n 1p "$D/save" | cut -f11)"
+	check "main ($shell): safe" ":vim notes.txt" "$(sed -n 2p "$D/save" | cut -f11)"
+done
+echo "passed=$pass failed=$fail"; (( fail == 0 ))
