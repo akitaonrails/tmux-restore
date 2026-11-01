@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Regression test: a login that runs a short-lived `tmux start-server` first (tmuxinator does)
 # must trigger exactly ONE restore, and every layout must come back exact. Throwaway server
-# using this repo's tmux.conf; continuum's "another server is running" check is disabled in a
-# plugin copy so auto-restore behaves as at boot even though your live server exists.
+# with TPM, tmux-resurrect, tmux-continuum and this plugin; continuum's "another server is
+# running" check is disabled in a plugin copy so auto-restore behaves as at boot even though
+# your own tmux server exists.
 # PLUGINS_DIR (default ~/.tmux/plugins) must contain tpm, tmux-resurrect and tmux-continuum.
 set -u
 here=$(cd "$(dirname "$0")" && pwd)
@@ -15,11 +16,18 @@ done
 # -L: copy real files, so the edit below can't reach the originals through a symlink (dangling
 # test-only links in a resurrect checkout without its submodule are skipped)
 mkdir "$D/plugins"; cp -rL "$PLUGINS_DIR"/{tpm,tmux-resurrect,tmux-continuum} "$D/plugins/" 2>/dev/null
+cp -r "$here/.." "$D/plugins/tmux-restore"
 printf '\nanother_tmux_server_running_on_startup() { return 1; }\nanother_tmux_server_running() { return 1; }\n' >> "$D/plugins/tmux-continuum/scripts/helpers.sh"
-cat "$here/../tmux.conf" - > "$D/test.conf" <<EOC
+cat > "$D/test.conf" <<EOC
+set -g @plugin 'tmux-plugins/tpm'
+set -g @plugin 'tmux-plugins/tmux-resurrect'
+set -g @plugin 'tmux-plugins/tmux-continuum'
+set -g @plugin 'andrewboldi/tmux-restore'
+# TPM reads @plugin lines from ~/.tmux.conf, not from this file, but it does read @tpm_plugins
+set -g @tpm_plugins 'tmux-plugins/tpm tmux-plugins/tmux-resurrect andrewboldi/tmux-restore tmux-plugins/tmux-continuum'
+set -g @continuum-restore 'on'
 set -g @resurrect-dir '$D/resurrect'
 set -g @resurrect-processes 'false'
-set -g @resurrect-hook-post-save-layout ''
 set -g default-size 254x75
 set -g @resurrect-hook-pre-restore-all 'echo restore-start >> $D/restores.log'
 set-environment -g TMUX_PLUGIN_MANAGER_PATH '$D/plugins/'
@@ -27,6 +35,8 @@ run '$D/plugins/tpm/tpm'
 EOC
 (
 	unset TMUX TMUX_PANE
+	export HOME=$D/home XDG_CONFIG_HOME=$D/home/.config # so TPM doesn't also read your ~/.tmux.conf
+	mkdir -p "$HOME"
 	tmux() { command tmux -L login-replay -f "$D/test.conf" "$@"; }
 	tmux start-server
 	cd ~ && tmux new-session -d -s main -n term

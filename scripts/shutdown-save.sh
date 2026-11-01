@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run by tmux-shutdown-save.service. Holds a logind "delay" inhibitor lock; on shutdown/reboot
+# Run by tmux-restore.service. Holds a logind "delay" inhibitor lock; on shutdown/reboot
 # logind announces PrepareForShutdown and waits for the lock to be released (up to
 # InhibitDelayMaxSec, 5s by default), and we use that window to save tmux.
 if [[ ${1:-} != --locked ]]; then

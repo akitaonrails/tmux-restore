@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Unit test for scripts/tmux-shutdown-save.sh with fake gdbus, tmux and save.sh: saves on
+# Unit test for scripts/shutdown-save.sh with fake gdbus, tmux and save.sh: saves on
 # PrepareForShutdown and exits 0; ignores other signals; exits 1 (so systemd restarts it) when
 # the monitor ends without a shutdown.
 set -u
@@ -14,7 +14,7 @@ pass=0 fail=0
 check() { if [[ $2 == "$3" ]]; then pass=$((pass + 1)); else fail=$((fail + 1)); printf 'FAIL %s\n  want: [%s]\n  got:  [%s]\n' "$1" "$2" "$3"; fi; }
 run() {  # $1 = signals the fake monitor prints, $2 = @resurrect-save-script-path
 	printf '%s\n' "$1" > "$D/signals"; printf '%s' "$2" > "$D/save-path"; : > "$D/saves"
-	out=$(HOME="$D/home" PATH="$D/bin:$PATH" "$here/../scripts/tmux-shutdown-save.sh" --locked); rc=$?
+	out=$(HOME="$D/home" PATH="$D/bin:$PATH" "$here/../scripts/shutdown-save.sh" --locked); rc=$?
 }
 shutdown="/org/freedesktop/login1: org.freedesktop.login1.Manager.PrepareForShutdown (true,)"
 run "$shutdown" "$D/save.sh"

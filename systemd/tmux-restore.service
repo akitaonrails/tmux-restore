@@ -1,0 +1,11 @@
+[Unit]
+Description=Save tmux sessions before shutdown and reboot (tmux-restore)
+
+[Service]
+# install.sh points this at the plugin's real location
+ExecStart=%h/.tmux/plugins/tmux-restore/scripts/shutdown-save.sh
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

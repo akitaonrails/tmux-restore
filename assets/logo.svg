@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="tmux-restore">
+  <defs>
+    <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2d333f"/>
+      <stop offset="1" stop-color="#191c23"/>
+    </linearGradient>
+    <clipPath id="window"><rect x="12" y="24" width="232" height="208" rx="26"/></clipPath>
+  </defs>
+  <g clip-path="url(#window)">
+    <rect x="12" y="24" width="232" height="208" fill="url(#body)"/>
+    <!-- tmux status bar -->
+    <rect x="12" y="200" width="232" height="32" fill="#1bb91f"/>
+    <rect x="28" y="211" width="34" height="10" rx="5" fill="#0b4d0d" opacity=".55"/>
+    <rect x="70" y="211" width="22" height="10" rx="5" fill="#0b4d0d" opacity=".35"/>
+    <!-- pane borders -->
+    <rect x="150" y="70" width="3" height="130" fill="#454c5a"/>
+    <rect x="153" y="133" width="91" height="3" fill="#454c5a"/>
+  </g>
+  <!-- title bar -->
+  <circle cx="40" cy="47" r="6.5" fill="#ff5f57"/>
+  <circle cx="61" cy="47" r="6.5" fill="#febc2e"/>
+  <circle cx="82" cy="47" r="6.5" fill="#28c840"/>
+  <!-- right panes: a prompt and some output -->
+  <rect x="166" y="86" width="14" height="8" rx="4" fill="#1bb91f"/>
+  <rect x="186" y="86" width="40" height="8" rx="4" fill="#8b949e"/>
+  <rect x="166" y="104" width="58" height="8" rx="4" fill="#59606d"/>
+  <rect x="166" y="152" width="14" height="8" rx="4" fill="#1bb91f"/>
+  <rect x="186" y="152" width="30" height="8" rx="4" fill="#8b949e"/>
+  <rect x="166" y="170" width="46" height="8" rx="4" fill="#59606d"/>
+  <!-- restore arrow, counter-clockwise -->
+  <path d="M 55.6 111.3 A 36 36 0 1 1 49.2 149.2" fill="none" stroke="#f0f3f6" stroke-width="11" stroke-linecap="round"/>
+  <path d="M 39.4 103.4 L 64.6 100.6 L 54.4 123.8 Z" fill="#f0f3f6" stroke="#f0f3f6" stroke-width="4" stroke-linejoin="round"/>
+  <!-- clock hands -->
+  <path d="M 84 116 V 136 L 98 145" fill="none" stroke="#1bb91f" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
