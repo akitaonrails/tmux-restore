@@ -31,6 +31,8 @@ mkproc() {
 	: > "$TMUX_RESTORE_PROC/$pid/task/$pid/children"
 	[[ -d $TMUX_RESTORE_PROC/$ppid ]] && printf '%s ' "$pid" >> "$TMUX_RESTORE_PROC/$ppid/task/$ppid/children"
 }
+# setmtime FILE EPOCH: create FILE with that modification time (GNU or BSD touch)
+setmtime() { touch -d "@$2" "$1" 2> /dev/null || touch -t "$(date -r "$2" +%Y%m%d%H%M.%S)" "$1"; }
 # openfile PID PATH: PID has PATH open
 openfile() { ln -s "$2" "$TMUX_RESTORE_PROC/$1/fd/$(ls "$TMUX_RESTORE_PROC/$1/fd" | wc -l | tr -d ' ')"; }
 
@@ -123,9 +125,9 @@ check "opencode: nothing yet -> -c, dir dropped" "TMUX_RESTORE=1 opencode -c"   
 # --- pi ---------------------------------------------------------------------------------------
 reset
 mkdir -p "$D/pi/sessions/--w-a--" "$D/pi/sessions/--w-b--"
-f1="$D/pi/sessions/--w-a--/2023-11-14T22-15-00-000Z_1111.jsonl"; touch -d @1700000100 "$f1"
-touch -d @1700000010 "$D/pi/sessions/--w-a--/2023-11-14T22-00-00-000Z_0000.jsonl"
-touch -d @1700000010 "$D/pi/sessions/--w-b--/2023-11-14T22-00-00-000Z_2222.jsonl"
+f1="$D/pi/sessions/--w-a--/2023-11-14T22-15-00-000Z_1111.jsonl"; setmtime "$f1" 1700000100
+setmtime "$D/pi/sessions/--w-a--/2023-11-14T22-00-00-000Z_0000.jsonl" 1700000010
+setmtime "$D/pi/sessions/--w-b--/2023-11-14T22-00-00-000Z_2222.jsonl" 1700000010
 E="PI_CODING_AGENT_DIR=$D/pi"
 mkproc 100 1 /w/a 10 /usr/bin/zsh; EXE=/opt/node/bin/node ENVIRON=$E mkproc 101 100 /w/a 5000 pi
 mkproc 200 1 /w/b 10 /usr/bin/zsh; EXE=/opt/node/bin/node ENVIRON=$E mkproc 201 200 /w/b 5000 pi
@@ -146,7 +148,7 @@ R=$D/codex/sessions/2026/10/31
 u1=11111111-2222-3333-4444-555555555555 u2=66666666-7777-8888-9999-aaaaaaaaaaaa
 rollout "$R/rollout-2026-10-31T10-00-00-$u1.jsonl" '"cli"' user /w/a
 rollout "$R/rollout-2026-10-31T10-05-00-$u2.jsonl" '{"subagent":"review"}' subagent /w/a
-touch -d @1700000100 "$R/rollout-2026-10-31T10-00-00-$u1.jsonl"; touch -d @1700000200 "$R/rollout-2026-10-31T10-05-00-$u2.jsonl"
+setmtime "$R/rollout-2026-10-31T10-00-00-$u1.jsonl" 1700000100; setmtime "$R/rollout-2026-10-31T10-05-00-$u2.jsonl" 1700000200
 mkproc 100 1 /w/a 10 /usr/bin/zsh
 EXE=/opt/node/bin/node mkproc 101 100 /w/a 5000 MainThread; printf '%s\0' node /opt/codex/bin/codex --model gpt-5 'fix it' > "$TMUX_RESTORE_PROC/101/cmdline"
 mkproc 102 101 /w/a 5000 /opt/codex/native/codex --model gpt-5 'fix it'

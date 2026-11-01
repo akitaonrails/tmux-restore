@@ -7,6 +7,7 @@ Bug reports, fixes and new agent adapters are welcome. Open an issue or a pull r
 ```sh
 tests/hook-unit.sh          # flag filtering, quoting, pre-typed commands (needs tmux, zsh, jq, sqlite3)
 tests/agents-unit.sh        # every adapter against a fake /proc
+tests/proc-live.sh          # the process helpers against real processes (/proc, or ps and lsof)
 tests/shutdown-unit.sh      # the save at shutdown, with fake gdbus and tmux
 tests/restore-race.sh       # two restores at once must restore a 29-window save exactly
 tests/login-replay.sh       # a tmuxinator-style login must restore once
@@ -16,6 +17,7 @@ tests/install-containers.sh # the installer on fresh Ubuntu, Debian, Fedora and 
 ```
 
 They run on throwaway tmux servers (`tmux -L <name>`) and never touch your own sessions or saves.
+CI runs them on Linux and macOS.
 The restore tests use the plugins in `~/.tmux/plugins`; point them elsewhere with `PLUGINS_DIR=`.
 `tests/install-test.sh` rewrites `~/.tmux.conf`, so it only runs where
 `TMUX_RESTORE_SANDBOX=1` is set, inside the containers.

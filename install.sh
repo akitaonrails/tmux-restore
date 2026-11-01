@@ -7,7 +7,7 @@
 # 1. Installs what's missing: tmux, git, jq, sqlite3 (and gdbus on Linux with systemd).
 # 2. Installs TPM, tmux-resurrect (with a fix for concurrent restores), tmux-continuum and
 #    tmux-restore, and adds them to your tmux config (the original is kept as *.before-tmux-restore).
-# 3. On Linux with systemd, enables a user service that saves right before shutdown.
+# 3. Saves right before shutdown: a systemd user service on Linux, a LaunchAgent on macOS.
 # 4. Loads the plugins into your running tmux server, if there is one.
 #
 # TMUX_RESTORE_SOURCE overrides where tmux-restore is cloned from (a URL or a path ending in
@@ -21,6 +21,7 @@ BEGIN="# >>> tmux-restore >>>"
 END="# <<< tmux-restore <<<"
 COMMENTED="#tmux-restore# "
 UNIT=tmux-restore.service
+LABEL=io.github.andrewboldi.tmux-restore
 
 say() { printf '\033[1;32m==>\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33mwarning:\033[0m %s\n' "$*" >&2; }
@@ -50,6 +51,7 @@ pkg_name() {
 	apk:gdbus) echo glib ;;
 	apt:sqlite3 | zypper:sqlite3) echo sqlite3 ;;
 	*:sqlite3) echo sqlite ;;
+	brew:flock) echo flock ;;
 	*:flock) echo util-linux ;;
 	*) echo "$2" ;;
 	esac
@@ -87,8 +89,11 @@ install_deps() {
 	if user_systemd; then
 		for tool in gdbus flock; do have "$tool" || need+=("$tool"); done
 	fi
-	# The save hook needs bash 4; macOS ships 3.2.
-	if [ "$(uname -s)" = Darwin ] && ! [ -x /opt/homebrew/bin/bash ] && ! [ -x /usr/local/bin/bash ]; then need+=(bash); fi
+	if [ "$(uname -s)" = Darwin ]; then
+		# The save hook needs bash 4 (macOS ships 3.2); flock lets only one restore run at a time.
+		[ -x /opt/homebrew/bin/bash ] || [ -x /usr/local/bin/bash ] || need+=(bash)
+		have flock || need+=(flock)
+	fi
 	if [ ${#need[@]} -gt 0 ]; then install_packages "${need[@]}"; fi
 	for tool in tmux git; do have "$tool" || die "$tool is still missing"; done
 }
@@ -215,7 +220,7 @@ edit_conf() {
 
 	run=$(grep -nE '^[[:space:]]*run(-shell)?[[:space:]].*tpm' "$tmp" | head -1 | cut -d: -f1 || true)
 	if [ -n "$run" ]; then
-		{ head -n $((run - 1)) "$tmp"; printf '%s\n' "$block"; tail -n +"$run" "$tmp"; } > "$tmp.2"
+		{ awk -v n="$run" 'NR < n' "$tmp"; printf '%s\n' "$block"; tail -n +"$run" "$tmp"; } > "$tmp.2"
 	else
 		{ cat "$tmp"; [ -s "$tmp" ] && echo; printf '%s\n' "$block" "run '$home_plugins/tpm/tpm'"; } > "$tmp.2"
 	fi
@@ -231,7 +236,57 @@ edit_conf() {
 	say "Updated $CONF"
 }
 
+# macOS: a small watcher, run by launchd, saves when macOS announces a logout, restart or shutdown.
+install_launch_agent() {
+	local plist="$HOME/Library/LaunchAgents/$LABEL.plist" bin="$PLUGINS/tmux-restore/bin/tmux-restore-shutdown" path dir lang
+	if ! have swiftc; then
+		say "No Swift compiler (Xcode Command Line Tools): tmux is saved every minute, but not at shutdown"
+		return 0
+	fi
+	mkdir -p "$(dirname "$bin")" "$(dirname "$plist")"
+	if ! swiftc -O -o "$bin" "$PLUGINS/tmux-restore/scripts/shutdown-watcher.swift" 2> /dev/null; then
+		warn "couldn't build the shutdown watcher; tmux is saved every minute, but not at shutdown"
+		return 0
+	fi
+	# launchd's environment has no UTF-8 locale, and in the C locale tmux turns the tabs in
+	# tmux-resurrect's output into "_", which leaves the save empty.
+	lang=${LC_ALL:-${LANG:-}}
+	case $lang in *[Uu][Tt][Ff]-8 | *[Uu][Tt][Ff]8) ;; *) lang=en_US.UTF-8 ;; esac
+	path=/usr/bin:/bin:/usr/sbin:/sbin # launchd's default PATH lacks Homebrew
+	for dir in /usr/local/bin /opt/homebrew/bin "$(dirname "$(command -v jq || echo /usr/bin/jq)")" "$(dirname "$(command -v tmux)")"; do
+		case ":$path:" in *":$dir:"*) ;; *) path="$dir:$path" ;; esac
+	done
+	cat > "$plist" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key><string>$LABEL</string>
+	<key>ProgramArguments</key>
+	<array><string>$bin</string><string>$PLUGINS/tmux-restore/scripts/save-now.sh</string></array>
+	<key>EnvironmentVariables</key>
+	<dict><key>PATH</key><string>$path</string><key>LANG</key><string>$lang</string></dict>
+	<key>StandardOutPath</key><string>$HOME/Library/Logs/tmux-restore.log</string>
+	<key>StandardErrorPath</key><string>$HOME/Library/Logs/tmux-restore.log</string>
+	<key>RunAtLoad</key><true/>
+	<key>KeepAlive</key><true/>
+	<key>LimitLoadToSessionType</key><string>Aqua</string>
+</dict>
+</plist>
+PLIST
+	launchctl bootout "gui/$(id -u)/$LABEL" 2> /dev/null || true
+	if launchctl bootstrap "gui/$(id -u)" "$plist" 2> /dev/null; then
+		say "Enabled the shutdown save: tmux is saved as you log out, restart or shut down"
+	else
+		warn "couldn't load $plist now; it starts at your next login"
+	fi
+}
+
 install_service() {
+	if [ "$(uname -s)" = Darwin ]; then
+		install_launch_agent
+		return
+	fi
 	if ! user_systemd; then
 		[ "$(uname -s)" = Linux ] && say "No systemd user session: tmux is saved every minute, but not at shutdown"
 		return 0
@@ -267,6 +322,11 @@ uninstall() {
 		tmp=$(mktemp)
 		strip_block < "$CONF" > "$tmp"
 		if same_file "$tmp" "$CONF"; then rm -f "$tmp"; else cat "$tmp" > "$CONF" && rm -f "$tmp" && say "Removed tmux-restore from $CONF"; fi
+	fi
+	if [ -e "$HOME/Library/LaunchAgents/$LABEL.plist" ]; then
+		launchctl bootout "gui/$(id -u)/$LABEL" 2> /dev/null || true
+		rm -f "$HOME/Library/LaunchAgents/$LABEL.plist"
+		say "Removed the shutdown save ($LABEL)"
 	fi
 	if [ -e "$dir/$UNIT" ]; then
 		user_systemd && systemctl --user disable -q --now "$UNIT" 2> /dev/null || true

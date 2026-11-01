@@ -34,12 +34,13 @@ proc_comm() {
 }
 
 # proc_name PID: the program's name. That's argv[0] without its directory, or for a script run by
-# an interpreter, the script's name without .js/.mjs/.cjs/.py: "node /usr/bin/gemini" -> gemini.
+# an interpreter (node, python, a shell, ...), the script's name without .js/.mjs/.cjs/.py:
+# "node /usr/bin/gemini" -> gemini.
 proc_name() {
 	proc_argv "$1" || return 1
 	local exe=${ARGV[0]##*/} arg
 	case $exe in
-	node | nodejs | bun | deno | python | python3* | ruby | perl)
+	node | nodejs | bun | deno | python | python3* | ruby | perl | sh | bash | dash | zsh)
 		for arg in "${ARGV[@]:1}"; do
 			[[ $arg == -* ]] && continue
 			arg=${arg##*/}
@@ -58,7 +59,7 @@ proc_args() {
 	proc_argv "$1" || return 1
 	local exe=${ARGV[0]##*/} i=1
 	case $exe in
-	node | nodejs | bun | deno | python | python3* | ruby | perl)
+	node | nodejs | bun | deno | python | python3* | ruby | perl | sh | bash | dash | zsh)
 		while (( i < ${#ARGV[@]} )) && [[ ${ARGV[i]} == -* ]]; do i=$((i + 1)); done
 		i=$((i + 1))
 		;;

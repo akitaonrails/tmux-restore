@@ -4,7 +4,8 @@
 #   TMUX_RESTORE_SANDBOX=1 TMUX_RESTORE_SOURCE=<repo, bundle or URL ending in /tmux-restore> \
 #     tests/install-test.sh [fresh|existing|dirty]
 #   fresh     no tmux config; checks a re-run changes nothing, then a save, a kill-server and the
-#             restore, then --uninstall. A fake systemctl stands in for a systemd user session.
+#             restore, then --uninstall. On Linux a fake systemctl stands in for a systemd user
+#             session; on macOS the real LaunchAgent is loaded and its save is triggered.
 #   existing  a config with TPM and upstream tmux-resurrect: the installer swaps in the fork
 #   dirty     like existing, but the resurrect checkout has local changes: it must be left alone
 #   running   tmux is already running (no systemd): the plugins load into it, and the save on
@@ -15,19 +16,43 @@ here=$(cd "$(dirname "$0")" && pwd)
 scenario=${1:-fresh}
 pass=0 fail=0
 check() { if [[ $2 == "$3" ]]; then pass=$((pass + 1)); echo "ok   $1"; else fail=$((fail + 1)); printf 'FAIL %s\n  want: [%s]\n  got:  [%s]\n' "$1" "$2" "$3"; fi; }
-ok() { if eval "$2"; then check "$1" yes yes; else check "$1" yes no; fi; }
+ok() { if eval "$2"; then check "$1" yes yes; else check "$1" yes no; return 1; fi; }
 P=$HOME/.tmux/plugins
 FORK=https://github.com/andrewboldi/tmux-resurrect
+LABEL=io.github.andrewboldi.tmux-restore
+OS=$(uname -s)
 as_root() { if [[ $(id -u) == 0 ]]; then "$@"; else sudo "$@"; fi; }
+diagnose() { # what a failed restore or save looked like
+	echo "    --- diagnostics: sessions=[$(tmux list-sessions -F '#S' 2> /dev/null | tr '\n' ' ')]"
+	tmux show-options -g 2> /dev/null | grep -E 'resurrect-(restore|hook)|continuum-restore|tmux-restore' | sed 's/^/    | /'
+	ls -la ~/.local/share/tmux/resurrect 2> /dev/null | sed 's/^/    | /'
+	ps -u "$(id -u)" -o pid,command 2> /dev/null | grep -E '[t]mux|[s]hutdown' | sed 's/^/    | /'
+	[[ -f ~/Library/Logs/tmux-restore.log ]] && sed 's/^/    log| /' ~/Library/Logs/tmux-restore.log
+	if [[ $OS == Darwin && -f ~/Library/LaunchAgents/$LABEL.plist ]]; then
+		echo "    --- last save:"
+		cat -e "$(readlink -f ~/.local/share/tmux/resurrect/last)" | head -4 | cut -c1-150 | sed 's/^/    | /'
+		local path
+		path=$(/usr/libexec/PlistBuddy -c 'Print :EnvironmentVariables:PATH' ~/Library/LaunchAgents/$LABEL.plist)
+		echo "    --- as the watcher runs it (PATH=$path):"
+		env -i HOME="$HOME" USER="$USER" PATH="$path" /bin/bash -c 'command -v tmux bash; tmux -V; tmux list-panes -a -F "#{session_name}:#{window_index}.#{pane_index}"; echo "list-panes exit $?"; locale | head -3' 2>&1 | sed 's/^/    | /'
+		env -i HOME="$HOME" USER="$USER" PATH="$path" /bin/bash -x "$(tmux show -gqv @resurrect-save-script-path)" quiet 2>&1 | grep -E 'list-(panes|windows)|dump_|tmux ' | head -20 | sed 's/^/    | /'
+	fi
+	return 0
+}
 pkg() { # install packages the test itself needs
 	if command -v apt-get > /dev/null; then as_root env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq "$@" > /dev/null
 	elif command -v dnf > /dev/null; then as_root dnf install -y -q "$@" > /dev/null
 	elif command -v pacman > /dev/null; then as_root pacman -S --noconfirm --needed "$@" > /dev/null
+	elif command -v brew > /dev/null; then brew install -q "$@"
 	fi
 }
 
 tmux kill-server 2> /dev/null
 rm -rf ~/.tmux ~/.tmux.conf* ~/.config/tmux ~/.config/systemd ~/.local/share/tmux ~/fake-bin
+if [[ $OS == Darwin ]]; then
+	launchctl bootout "gui/$(id -u)/$LABEL" 2> /dev/null
+	rm -f ~/Library/LaunchAgents/$LABEL.plist
+fi
 if [[ $scenario == existing || $scenario == dirty ]]; then
 	command -v git > /dev/null || pkg git
 	git clone -q --depth 1 https://github.com/tmux-plugins/tpm "$P/tpm"
@@ -52,7 +77,7 @@ if [[ $scenario == running ]]; then
 	tmux -f /dev/null new-session -d -s mine
 	sleep 11 # older than continuum's 10 s "just started" window
 fi
-if [[ $scenario == fresh ]]; then # stand-in for a systemd user session
+if [[ $scenario == fresh && $OS == Linux ]]; then # stand-in for a systemd user session
 	mkdir -p ~/fake-bin
 	printf '#!/bin/sh\necho "$*" >> "$HOME/systemctl.log"\ncase "$*" in *is-enabled*) exit 1 ;; esac\n' > ~/fake-bin/systemctl
 	chmod +x ~/fake-bin/systemctl
@@ -91,9 +116,16 @@ check "[$scenario] re-run exits 0" 0 "$?"
 check "[$scenario] re-run leaves the config alone" "$(cat ~/after-first.conf)" "$(cat ~/.tmux.conf)"
 
 if [[ $scenario == fresh ]]; then
-	ok "[fresh] unit written with the plugin's path" "grep -q '^ExecStart=\"$P/tmux-restore/scripts/shutdown-save.sh\"$' ~/.config/systemd/user/tmux-restore.service"
-	ok "[fresh] unit enabled and started" "grep -q '^--user enable -q tmux-restore.service$' ~/systemctl.log && grep -q '^--user restart tmux-restore.service$' ~/systemctl.log"
-	ok "[fresh] gdbus installed (shutdown save)" "command -v gdbus > /dev/null"
+	if [[ $OS == Linux ]]; then
+		ok "[fresh] unit written with the plugin's path" "grep -q '^ExecStart=\"$P/tmux-restore/scripts/shutdown-save.sh\"$' ~/.config/systemd/user/tmux-restore.service"
+		ok "[fresh] unit enabled and started" "grep -q '^--user enable -q tmux-restore.service$' ~/systemctl.log && grep -q '^--user restart tmux-restore.service$' ~/systemctl.log"
+		ok "[fresh] gdbus installed (shutdown save)" "command -v gdbus > /dev/null"
+	else
+		ok "[fresh] flock installed (one restore at a time)" "command -v flock > /dev/null"
+		ok "[fresh] bash 4+ installed (the save hook)" "[[ -x /opt/homebrew/bin/bash || -x /usr/local/bin/bash ]]"
+		ok "[fresh] shutdown watcher built" "[[ -x $P/tmux-restore/bin/tmux-restore-shutdown ]]"
+		ok "[fresh] LaunchAgent written" "plutil -lint ~/Library/LaunchAgents/$LABEL.plist > /dev/null"
+	fi
 
 	# A real save, kill-server and automatic restore. In zsh, a command that isn't safe to re-run
 	# must come back typed on the prompt, which proves resurrect ran the hook's TMUX_RESTORE=1 line.
@@ -112,6 +144,16 @@ if [[ $scenario == fresh ]]; then
 	tmux run-shell "$(tmux show -gqv @resurrect-save-script-path) quiet"
 	save=$(readlink -f ~/.local/share/tmux/resurrect/last)
 	ok "[fresh] save rewritten by the hook" "grep -qF \"TMUX_RESTORE=1 print -rz -- 'sleep 4242'\" '$save'"
+	if [[ $OS == Darwin ]]; then # what macOS's logout notification triggers, via SIGUSR1
+		ok "[fresh] LaunchAgent loaded" "launchctl print gui/$(id -u)/$LABEL > /dev/null 2>&1"
+		watcher=$(pgrep -f "$P/tmux-restore/bin/tmux-restore-shutdown" | head -1)
+		ok "[fresh] shutdown watcher running" "[[ -n '$watcher' ]]"
+		tmux new-window -d -t main -n from-watcher
+		sleep 1
+		[[ -n $watcher ]] && kill -USR1 "$watcher"
+		for _ in $(seq 20); do grep -q from-watcher "$(readlink -f ~/.local/share/tmux/resurrect/last)" && break; sleep 0.5; done
+		ok "[fresh] the watcher saves tmux" "grep -q from-watcher \"\$(readlink -f ~/.local/share/tmux/resurrect/last)\"" || diagnose
+	fi
 	tmux kill-server
 	sleep 1
 	tmux new-session -d -s scratch
@@ -120,7 +162,11 @@ if [[ $scenario == fresh ]]; then
 	sleep 5
 	for _ in $(seq 30); do tmux has-session -t main 2> /dev/null && tmux list-windows -t main -F '#W' | grep -qx work && break; sleep 1; done
 	sleep 3
-	ok "[fresh] restored on start" "tmux list-windows -t main -F '#W' | grep -qx work"
+	if ! ok "[fresh] restored on start" "tmux list-windows -t main -F '#W' | grep -qx work"; then
+		diagnose
+		echo "    --- restoring by hand:"
+		bash -x "$(tmux show -gqv @resurrect-restore-script-path)" 2>&1 | tail -25 | sed 's/^/    | /'
+	fi
 	screen=$(tmux capture-pane -p -t main:work)
 	ok "[fresh] resurrect ran the hook's command" "grep -qF \"TMUX_RESTORE=1 print -rz -- 'sleep 4242'\" <<< \"\$screen\""
 	check "[fresh] command typed on the prompt" "sleep 4242" "$(grep -v '^[[:space:]]*$' <<< "$screen" | tail -1 | grep -o 'sleep 4242$')"
@@ -131,13 +177,14 @@ if [[ $scenario == fresh ]]; then
 	check "[fresh] uninstall exits 0" 0 "$?"
 	ok "[fresh] block removed" "! grep -q 'tmux-restore' ~/.tmux.conf"
 	ok "[fresh] unit removed" "[[ ! -e ~/.config/systemd/user/tmux-restore.service ]]"
+	[[ $OS == Darwin ]] && ok "[fresh] LaunchAgent removed" "[[ ! -e ~/Library/LaunchAgents/$LABEL.plist ]] && ! launchctl print gui/$(id -u)/$LABEL > /dev/null 2>&1"
 	ok "[fresh] plugin removed" "[[ ! -d $P/tmux-restore ]]"
 fi
 if [[ $scenario == running ]]; then
 	check "[running] hook loaded into the running server" "$P/tmux-restore/scripts/save-hook.sh" "$(tmux show -gqv @resurrect-hook-post-save-layout)"
 	ok "[running] restore marker loaded" "tmux show -gqv @resurrect-processes | grep -qF '\"~^TMUX_RESTORE=1 \"'"
 	ok "[running] says it loaded" "grep -q 'Loaded into your running tmux server' ~/install.log"
-	ok "[running] no save-at-shutdown without systemd, and says so" "grep -q 'No systemd user session' ~/install.log && [[ ! -e ~/.config/systemd/user/tmux-restore.service ]]"
+	[[ $OS == Linux ]] && ok "[running] no save-at-shutdown without systemd, and says so" "grep -q 'No systemd user session' ~/install.log && [[ ! -e ~/.config/systemd/user/tmux-restore.service ]]"
 	sleep 6
 	check "[running] its sessions left alone (nothing restored)" mine "$(tmux list-sessions -F '#S' | tr '\n' ' ' | sed 's/ $//')"
 	tmux set -g default-shell "$(command -v zsh)"

@@ -7,7 +7,8 @@
 # directory. pi hides its own command line, so its flags can't be kept.
 
 pi_match() {
-	[[ $(proc_comm "$1") == pi ]] || return 1
+	# pi renames its process to "pi" (macOS shows that in its arguments, not its name).
+	[[ $(proc_comm "$1") == pi || $(proc_name "$1") == pi ]] || return 1
 	# Not Debian's /usr/bin/pi, which prints digits of pi: the agent runs on node (or bun).
 	local exe
 	exe=$(proc_exe "$1")

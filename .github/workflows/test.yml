@@ -13,6 +13,7 @@ jobs:
       - run: shellcheck -x -S warning install.sh tmux-restore.tmux scripts/*.sh agents/*.sh tests/*.sh
       - run: tests/hook-unit.sh
       - run: tests/agents-unit.sh
+      - run: tests/proc-live.sh
       - run: tests/shutdown-unit.sh
 
   restore:
@@ -43,3 +44,31 @@ jobs:
         with:
           fetch-depth: 0 # the test bundles the checkout, which a shallow clone can't do
       - run: tests/install-containers.sh ${{ matrix.image }}
+
+  macos:
+    runs-on: macos-latest
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: 1
+      HOMEBREW_NO_INSTALL_CLEANUP: 1
+    steps:
+      - uses: actions/checkout@v4
+      - name: Installer (installs what's missing, loads the shutdown watcher)
+        run: |
+          git checkout -q -B main
+          export TMUX_RESTORE_SANDBOX=1 TMUX_RESTORE_SOURCE="$GITHUB_WORKSPACE"
+          tests/install-test.sh fresh
+          tests/install-test.sh running
+      - if: success() || failure() # run every check, to see them all
+        run: tests/hook-unit.sh
+      - if: success() || failure() # run every check, to see them all
+        run: tests/agents-unit.sh
+      - if: success() || failure() # run every check, to see them all
+        run: tests/proc-live.sh
+      - if: success() || failure() # run every check, to see them all
+        run: tests/restore-race.sh double
+      - if: success() || failure() # run every check, to see them all
+        run: tests/restore-lock-release.sh bg-hook
+      - if: success() || failure() # run every check, to see them all
+        run: tests/restore-safety-net.sh
+      - if: success() || failure() # run every check, to see them all
+        run: tests/login-replay.sh

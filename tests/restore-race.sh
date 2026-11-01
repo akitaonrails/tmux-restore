@@ -16,7 +16,10 @@ T -f "$D/test.conf" new-session -d -s main -n term; sleep 2
 if [[ $mode == single ]]; then T run-shell "$RESTORE"; else T run-shell -b "$RESTORE"; T run-shell -b "$RESTORE"; fi
 want=$(grep -c $'^window\t' "$D/resurrect/save.txt")
 for _ in $(seq 60); do sleep 1; (( $(T list-windows -t main 2>/dev/null | wc -l) >= want )) && break; done; sleep 5
-norm() { sed -E 's/^[0-9a-f]{4},//; s/([0-9]+x[0-9]+,[0-9]+,[0-9]+),[0-9]+/\1/g'; }  # drop checksum + pane ids
+norm() { # a layout's geometry, "WxH,X,Y ..." in tree order, from the old format or tmux 3.8's JSON
+	grep -oE '[0-9]+x[0-9]+,[0-9]+,[0-9]+|"w":[0-9]+,"h":[0-9]+,"x":[0-9]+,"y":[0-9]+' |
+		sed -E 's/"w":([0-9]+),"h":([0-9]+),"x":([0-9]+),"y":([0-9]+)/\1x\2,\3,\4/' | tr '\n' ' '
+}
 bad=0
 while IFS=$'\t' read -r w saved; do
 	exp=$(printf '%s' "$saved" | norm); got=$(T display -p -t "main:$w" '#{window_layout}' 2>/dev/null | norm)

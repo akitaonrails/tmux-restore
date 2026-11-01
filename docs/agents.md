@@ -11,8 +11,10 @@ started with. The initial prompt is never sent again.
 | [opencode](https://opencode.ai) | The newest session in the agent's directory updated after it started. | `opencode -s <id> <flags>` | 1.18.32 |
 | [pi](https://github.com/badlogic/pi-mono) | The newest session file in the agent's directory written after it started. | `pi --session <file>` | 0.55.0 |
 
-"Verified" means a real round trip on a throwaway tmux server: the agent ran in a pane with a
-conversation, tmux saved, the server was killed and restored, and the same conversation reopened.
+"Verified" means a real round trip on a throwaway tmux server on Linux: the agent ran in a pane
+with a conversation, tmux saved, the server was killed and restored, and the same conversation
+reopened. On macOS, the same lookups run through `ps` and `lsof`, and CI checks them against real
+processes.
 
 **Nothing typed yet.** A session you haven't typed in yet comes back fresh: Claude Code with the
 same session id, Codex and Gemini CLI as a new session. opencode and pi come back with `-c`, their

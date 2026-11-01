@@ -1,8 +1,10 @@
 # Caveats
 
-**Platforms.** Everything is tested on Linux. On macOS, tmux itself comes back and the agent
-adapters read processes through `ps` and `lsof`, but that path hasn't been tested with real
-agents, and there's no save at shutdown (the minute-by-minute save still runs).
+**Platforms.** Linux and macOS. CI runs the installer, the restores and the process lookups on
+both. Two things are verified on Linux only: the round trips with the real agents, and the
+moment of shutdown itself. On macOS, CI triggers the shutdown watcher's save by hand, because
+it can't log out. The watcher needs the Xcode Command Line Tools, which Homebrew installs.
+Without them, the installer says so and the minute-by-minute save still runs.
 
 **Power loss and crashes** lose up to a minute: whatever happened since the last save.
 

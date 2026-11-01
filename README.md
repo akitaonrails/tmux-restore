@@ -49,7 +49,8 @@ update.
    records every session, window, pane and its scrollback.
 2. **Rewrite.** For each pane running an agent, a small adapter finds the conversation's id in
    the agent's own session files and saves the command that resumes it.
-3. **Shutdown.** A systemd user service saves once more the moment the machine starts going down.
+3. **Shutdown.** A background service (systemd on Linux, launchd on macOS) saves once more the
+   moment the machine starts going down.
 4. **Restore.** When tmux starts, [tmux-continuum](https://github.com/tmux-plugins/tmux-continuum)
    puts it all back, and the agents reopen their conversations.
 

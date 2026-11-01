@@ -36,8 +36,14 @@ directory, they'd both reopen the same conversation, so both get the pre-typed c
 On Linux with systemd, [`tmux-restore.service`](../systemd/tmux-restore.service) runs
 [`scripts/shutdown-save.sh`](../scripts/shutdown-save.sh) under
 `systemd-inhibit --mode=delay`. When the machine announces a shutdown or reboot (logind's
-`PrepareForShutdown`), it saves, and logind waits for it. The minute-by-minute saves cover crashes
-and power loss.
+`PrepareForShutdown`), it saves, and logind waits for it.
+
+On macOS, the installer builds [a small watcher](../scripts/shutdown-watcher.swift) and runs it
+as a LaunchAgent. macOS announces a logout, restart or shutdown to running programs before apps
+quit (`NSWorkspace.willPowerOffNotification`), and the watcher saves then. Its log is
+`~/Library/Logs/tmux-restore.log`.
+
+The minute-by-minute saves cover crashes and power loss.
 
 ## Restoring
 
@@ -87,4 +93,5 @@ three seconds after the server did, tmux-restore runs it, under continuum's othe
 | [`scripts/save-hook.sh`](../scripts/save-hook.sh) | rewrites saved commands |
 | [`scripts/lib.sh`](../scripts/lib.sh) | process inspection (`/proc`, or `ps`/`lsof`) and flag filtering |
 | [`agents/*.sh`](../agents) | one adapter per agent |
-| [`scripts/shutdown-save.sh`](../scripts/shutdown-save.sh) | the save at shutdown |
+| [`scripts/shutdown-save.sh`](../scripts/shutdown-save.sh) | the save at shutdown (Linux) |
+| [`scripts/shutdown-watcher.swift`](../scripts/shutdown-watcher.swift) | the save at shutdown (macOS) |
