@@ -40,4 +40,10 @@ for shell in zsh bash; do
 	check "main ($shell): unsafe" "$want" "$(sed -n 1p "$D/save" | cut -f11)"
 	check "main ($shell): safe" ":vim notes.txt" "$(sed -n 2p "$D/save" | cut -f11)"
 done
+# a program that renamed itself: resurrect records "npm\ run\ dev '' '' ''"
+tmux set -g default-shell "$(command -v zsh)"
+printf 'pane\tmain\t0\t1\t:*\t0\tzsh\t:/tmp\t1\tnpm\t:%s\n' "npm\\ run\\ dev '' '' '' " > "$D/save"
+main "$D/save"
+check "renamed process: typed as its name" ":TMUX_RESTORE=1 print -rz -- 'npm run dev'" "$(cut -f11 "$D/save")"
+check "tidy leaves real arguments alone" "grep -r foo\\ bar ." "$(tidy "grep -r foo\\ bar .")"
 echo "passed=$pass failed=$fail"; (( fail == 0 ))

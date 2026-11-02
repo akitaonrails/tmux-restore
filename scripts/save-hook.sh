@@ -57,6 +57,16 @@ scope_prefix() {
 	[[ $max == max ]] || printf 'systemd-run --user --scope -q -p MemoryMax=%s ' "$max"
 }
 
+# tmux-resurrect records a program that renamed itself (process.title, e.g. `npm run dev`) as
+# its new name, escaped, plus one '' per leftover byte of the old command line:
+# "npm\ run\ dev '' '' ...". Drop the ''s, and show a lone escaped name as typed.
+tidy() {
+	local cmd=$1
+	while [[ $cmd == *" ''" ]]; do cmd=${cmd% \'\'}; done
+	[[ $cmd == *[!\\]" "* ]] || cmd=${cmd//\\ / }
+	printf '%s' "$cmd"
+}
+
 # What to save for a command that isn't an agent's conversation.
 plain() {
 	local cmd=$1
@@ -127,7 +137,7 @@ main() {
 		fi
 		heads[i]=${line%$'\t'*}
 		cmd=${line##*$'\t':} # last field minus resurrect's ":" prefix
-		cmds[i]=${cmd% }
+		cmds[i]=$(tidy "${cmd% }")
 		mapfile -td $'\t' fields < <(printf '%s' "${heads[i]}")
 		target="${fields[1]}:${fields[2]}.${fields[5]}"
 		rewrite "${pane_pids[$target]:-}" "${cmds[i]}"
